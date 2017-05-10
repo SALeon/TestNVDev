@@ -1,0 +1,39 @@
+<android.support.design.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:map="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    >
+
+    <fragment
+        android:id="@+id/map"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:context="org.leon.serg.testnvdev.ui.MapsActivity"/>
+
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/gps_fab"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginBottom="88dp"
+        android:layout_marginEnd="24dp"
+        android:elevation="6dp"
+        android:src="@drawable/ic_gps_fixed_black_24dp"
+        map:backgroundTint="@android:color/white"
+        map:layout_anchor="@id/map"
+        map:layout_anchorGravity="bottom|right"
+        />
+
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/add_fab"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginBottom="16dp"
+        android:layout_marginEnd="24dp"
+        android:elevation="6dp"
+        android:src="@drawable/ic_add_white_24dp"
+        map:layout_anchor="@+id/map"
+        map:layout_anchorGravity="bottom|right"/>
+</android.support.design.widget.CoordinatorLayout>
