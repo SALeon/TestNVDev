@@ -8,4 +8,5 @@ public class ConstantManager {
     public static final float VALUE_ZOOM_LOCATION = 11;
 public static final String GOOGLE_PLACE_API_KEY="AIzaSyDhXxBZtsXl1jFZJO5HFytcNwg3bEanWUA";
 
+    public static final int RADIUS_LOCATION = 500;
 };

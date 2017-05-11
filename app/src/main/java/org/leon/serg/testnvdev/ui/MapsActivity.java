@@ -31,8 +31,15 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import org.leon.serg.testnvdev.data.managers.DataManager;
+import org.leon.serg.testnvdev.data.network.req.LocalModelReq;
+import org.leon.serg.testnvdev.data.network.res.LocalModelRes;
 import org.leon.serg.testnvdev.utils.ConstantManager;
 import org.leon.serg.testnvdev.R;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         , GoogleApiClient.ConnectionCallbacks
@@ -47,6 +54,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private FloatingActionButton mActionButtonAddPhoto;
     private FloatingActionButton mActionButtonLocation;
     private static final String TAG = ConstantManager.PREFIX + "MapsActivity";
+    private DataManager mDataManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,6 +71,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mActionButtonLocation=(FloatingActionButton)findViewById(R.id.gps_fab);
         mActionButtonLocation.setOnClickListener(this);
+
+        mDataManager=DataManager.getInstance();
+
     }
 
     @Override
@@ -243,6 +254,23 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onClick(View v) {
         switch (v.getId()){
             case R.id.add_fab:
+                Call<LocalModelRes> call= mDataManager.getLocation(new LocalModelReq(
+                        (float) mLatLng.latitude
+                        ,(float)mLatLng.longitude
+                        ,ConstantManager.RADIUS_LOCATION
+                        ,ConstantManager.GOOGLE_PLACE_API_KEY
+                ));
+                call.enqueue(new Callback<LocalModelRes>() {
+                    @Override
+                    public void onResponse(Call<LocalModelRes> call, Response<LocalModelRes> response) {
+
+                    }
+
+                    @Override
+                    public void onFailure(Call<LocalModelRes> call, Throwable t) {
+
+                    }
+                });
                 break;
             case R.id.gps_fab:
                 break;

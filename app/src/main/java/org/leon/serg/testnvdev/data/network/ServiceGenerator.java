@@ -10,6 +10,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class ServiceGenerator {
     private static OkHttpClient.Builder httpClient = new OkHttpClient.Builder();
+
     private static Retrofit.Builder sBuilder =
             new Retrofit.Builder()
                     .baseUrl(AppConfig.BASE_URL)
