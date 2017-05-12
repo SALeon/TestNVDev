@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="map_fab_width">56dp</dimen>
+    <dimen name="map_fab_height">56dp</dimen>
+    <dimen name="medium_margin">16dp</dimen>
+    <dimen name="large_margin">24dp</dimen>
+    <dimen name="divider_size">2dp</dimen>
+    <dimen name="divider">1dp</dimen>
+</resources>

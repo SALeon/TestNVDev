@@ -7,14 +7,16 @@ import android.location.Location;
 import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.design.widget.BottomSheetBehavior;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -30,20 +32,27 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.squareup.picasso.Picasso;
 
 import org.leon.serg.testnvdev.data.managers.DataManager;
-import org.leon.serg.testnvdev.data.network.req.LocalModelReq;
 import org.leon.serg.testnvdev.data.network.res.LocalModelRes;
+import org.leon.serg.testnvdev.data.storage.PlacePhotoReference;
+import org.leon.serg.testnvdev.utils.AppConfig;
 import org.leon.serg.testnvdev.utils.ConstantManager;
 import org.leon.serg.testnvdev.R;
 
+import java.util.List;
+
+import butterknife.BindViews;
+import butterknife.ButterKnife;
+import butterknife.Unbinder;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
+public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback
         , GoogleApiClient.ConnectionCallbacks
-        , GoogleApiClient.OnConnectionFailedListener, LocationListener,View.OnClickListener {
+        , GoogleApiClient.OnConnectionFailedListener, LocationListener, View.OnClickListener {
 
     private LocationRequest mLocationRequest;
     private GoogleApiClient mGoogleApiClient;
@@ -51,29 +60,43 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private SupportMapFragment mFragment;
     private Marker currLocationMarker;
     private GoogleMap mMap;
-    private FloatingActionButton mActionButtonAddPhoto;
-    private FloatingActionButton mActionButtonLocation;
+    private FloatingActionButton mActionButton;
     private static final String TAG = ConstantManager.PREFIX + "MapsActivity";
     private DataManager mDataManager;
+    private BottomSheetBehavior mBottomSheetBehavior;
+    private int mCurrentEditMode = 0;
+
+
+    @BindViews({
+            R.id.image_sheet_bottom_1,
+            R.id.image_sheet_bottom_2,
+            R.id.image_sheet_bottom_3,
+            R.id.image_sheet_bottom_4,
+    })
+    List<ImageView> mCollageView;
+    Unbinder mUnbinder;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-        Log.d(TAG,"onCreate");
+        Log.d(TAG, "onCreate");
 
         mFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mFragment.getMapAsync(this);
 
-        mActionButtonAddPhoto =(FloatingActionButton)findViewById(R.id.add_fab);
-        mActionButtonAddPhoto.setOnClickListener(this);
+        mActionButton = (FloatingActionButton) findViewById(R.id.add_fab);
+        mActionButton.setOnClickListener(this);
 
-        mActionButtonLocation=(FloatingActionButton)findViewById(R.id.gps_fab);
-        mActionButtonLocation.setOnClickListener(this);
+        View bottomSheet = findViewById(R.id.bottom_sheet);
+        mBottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
 
-        mDataManager=DataManager.getInstance();
+        mUnbinder = ButterKnife.bind(this);
 
+        mDataManager = DataManager.getInstance();
+
+//TODO : save data photos and locale (rotate device)
     }
 
     @Override
@@ -83,7 +106,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
-//                    && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
                     ) {
                 mMap.setMyLocationEnabled(true);
                 buildGoogleApiClient();
@@ -117,17 +139,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         super.onPause();
         if (mGoogleApiClient != null) {
             LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
-        mGoogleApiClient.disconnect();
+            mGoogleApiClient.disconnect();
         }
     }
 
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         Location lastLocation = null;
-//        Toast.makeText(this, "onConnected", Toast.LENGTH_SHORT).show();
+        Log.d(TAG, "onConnected");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
-//                    && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
                     ) {
                 lastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
             } else {
@@ -238,43 +259,86 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     }
 
                 } else {
-
-                    // permission denied, boo! Disable the
+                    // permission denied! Disable the
                     // functionality that depends on this permission.
                     Toast.makeText(this, "permission denied", Toast.LENGTH_LONG).show();
                 }
             }
-
-            // other 'case' lines to check for other
-            // permissions this app might request
         }
     }
 
     @Override
     public void onClick(View v) {
-        switch (v.getId()){
+        switch (v.getId()) {
             case R.id.add_fab:
-                Call<LocalModelRes> call= mDataManager.getLocation(new LocalModelReq(
-                        (float) mLatLng.latitude
-                        ,(float)mLatLng.longitude
-                        ,ConstantManager.RADIUS_LOCATION
-                        ,ConstantManager.GOOGLE_PLACE_API_KEY
-                ));
-                call.enqueue(new Callback<LocalModelRes>() {
-                    @Override
-                    public void onResponse(Call<LocalModelRes> call, Response<LocalModelRes> response) {
+                if (mCurrentEditMode == 0) {
 
-                    }
+                    Log.d(TAG, "button fab add work");
+                    Call<LocalModelRes> call = mDataManager.getLocation(
+                            convertLocation((float) mLatLng.latitude
+                                    , (float) mLatLng.longitude)
+                            , ConstantManager.RADIUS_SEARCH_LOCATION
+                            , ConstantManager.GOOGLE_PLACE_API_KEY
+                    );
+                    call.enqueue(new Callback<LocalModelRes>() {
+                        @Override
+                        public void onResponse(Call<LocalModelRes> call, Response<LocalModelRes> response) {
+                            if (response.code() == 200) {
+                                List<PlacePhotoReference> listReference = mDataManager.getReferences(response.body());
 
-                    @Override
-                    public void onFailure(Call<LocalModelRes> call, Throwable t) {
+                                for (int i = 0; i < ConstantManager.COUNT_RANDOM_PHOTO_IN_COLLAGE; i++) {
 
-                    }
-                });
-                break;
-            case R.id.gps_fab:
-                break;
-            default:break;
+                                    String URL = AppConfig.PHOTO_URL.concat(AppConfig.MAX_WITH_PHOTO_URL_ATR).concat(ConstantManager.MAX_WITH_PHOTO)
+                                            .concat(AppConfig.REFERENCE_PHOTO_URL_ATR).concat(listReference.get(i).getIdPhoto())
+                                            .concat(AppConfig.KEY_URL_ATR).concat(ConstantManager.GOOGLE_PLACE_API_KEY);
+
+                                    Picasso.with(getApplicationContext()).load(URL)
+                                            .fit()
+                                            .centerCrop()
+                                            .into(mCollageView.get(i));
+                                }
+
+                            } else {
+                                Log.d(TAG, "Error response server");
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Call<LocalModelRes> call, Throwable t) {
+                            Log.d(TAG, "Error");
+                        }
+                    });
+
+                    changeEditMode(mCurrentEditMode);
+                    mCurrentEditMode=1;
+
+
+                }else {
+                    changeEditMode(mCurrentEditMode);
+                    mCurrentEditMode=0;
+//                    TODO: shared photo
+                }
+        }
+
+        //TODO:default
+    }
+
+
+    private String convertLocation(float latitude, float longitude) {
+        return new String(Float.toString(latitude) + "," + Float.toString(longitude));
+    }
+
+    private void changeEditMode(int mode) {
+        if (mode == 1) {
+            mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+            mActionButton.setImageResource(R.drawable.ic_add_white_24dp);
+
+
+        } else {
+            mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+            mActionButton.setImageResource(R.drawable.ic_share_white_24dp);
+
         }
     }
+
 }
