@@ -2,9 +2,14 @@ package org.leon.serg.testnvdev.ui;
 
 import android.Manifest;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.location.Location;
+import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.BottomSheetBehavior;
@@ -41,6 +46,12 @@ import org.leon.serg.testnvdev.utils.AppConfig;
 import org.leon.serg.testnvdev.utils.ConstantManager;
 import org.leon.serg.testnvdev.R;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import butterknife.BindViews;
@@ -54,6 +65,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         , GoogleApiClient.ConnectionCallbacks
         , GoogleApiClient.OnConnectionFailedListener, LocationListener, View.OnClickListener {
 
+    private View mScreenshotView;
     private LocationRequest mLocationRequest;
     private GoogleApiClient mGoogleApiClient;
     private LatLng mLatLng;
@@ -64,8 +76,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private static final String TAG = ConstantManager.PREFIX + "MapsActivity";
     private DataManager mDataManager;
     private BottomSheetBehavior mBottomSheetBehavior;
-    private int mCurrentEditMode = 0;
-
+    private int mCurrentEditMode = ConstantManager.EDIT_MODE_HIDE_COLLAGE;
+    private ArrayList<String> mKeyPhotoPlace;
+    private String[] mPermissionsForActivity = new String[]{
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+    };
 
     @BindViews({
             R.id.image_sheet_bottom_1,
@@ -92,10 +108,21 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         View bottomSheet = findViewById(R.id.bottom_sheet);
         mBottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
 
+        mScreenshotView = findViewById(R.id.screenshot_view);
+
         mUnbinder = ButterKnife.bind(this);
 
         mDataManager = DataManager.getInstance();
 
+
+        if (savedInstanceState != null) {
+
+            mKeyPhotoPlace = savedInstanceState.getStringArrayList(ConstantManager.ID_PHOTO_IN_COLLAGE_KEY);
+            mCurrentEditMode = savedInstanceState.getInt(ConstantManager.EDIT_MODE_SAVE_KEY);
+            changeEditMode(mCurrentEditMode);
+
+
+        }
 //TODO : save data photos and locale (rotate device)
     }
 
@@ -110,7 +137,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 mMap.setMyLocationEnabled(true);
                 buildGoogleApiClient();
             } else {
-                checkLocationPermission();
+                checkPermissions("необходимо разрешение для получения местоположения"
+                        , "для продолжения работы приложения необходимо разрешение для определения местоположения "
+                        , mPermissionsForActivity[0]);
             }
         } else {
             mMap.setMyLocationEnabled(true);
@@ -137,11 +166,13 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     protected void onPause() {
         super.onPause();
+        Log.d(TAG, "onPause");
         if (mGoogleApiClient != null) {
-            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+//            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
             mGoogleApiClient.disconnect();
         }
     }
+
 
     @Override
     public void onConnected(@Nullable Bundle bundle) {
@@ -152,7 +183,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     ) {
                 lastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
             } else {
-                checkLocationPermission();
+                checkPermissions("необходимо разрешение для получения местоположения"
+                        , "для продолжения работы приложения необходимо разрешение для определения местоположения "
+                        , mPermissionsForActivity[0]);
             }
         } else {
             lastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
@@ -187,8 +220,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onLocationChanged(Location location) {
-        //place marker at current position
-        //mGoogleMap.clear();
 
         if (currLocationMarker != null) {
             currLocationMarker.remove();
@@ -201,29 +232,27 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         currLocationMarker = mMap.addMarker(markerOptions);
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(mLatLng, ConstantManager.VALUE_ZOOM_LOCATION));
 
-        //If you only need one location, unregister the listener
-//        LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
     }
 
 
-    private void checkLocationPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+    private void checkPermissions(String titleText, String messageText, final String permission) {
+        if (ContextCompat.checkSelfPermission(this, permission)
                 != PackageManager.PERMISSION_GRANTED) {
 
             // Should we show an explanation
             if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.ACCESS_FINE_LOCATION)) {
+                    permission)) {
 
                 new AlertDialog.Builder(this)
-                        .setTitle("Location Permission Needed")
-                        .setMessage("This app needs the Location permission, please accept to use location functionality")
+                        .setTitle(titleText)
+                        .setMessage(messageText)
                         .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialogInterface, int i) {
                                 //Prompt the user once explanation has been shown
                                 ActivityCompat.requestPermissions(MapsActivity.this,
-                                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                                        ConstantManager.PERMISSIONS_REQUEST_LOCATION);
+                                        mPermissionsForActivity,
+                                        ConstantManager.PERMISSION_CODE);
                             }
                         })
                         .create()
@@ -232,8 +261,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             } else {
                 // No explanation needed, we can request the permission.
                 ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        ConstantManager.PERMISSIONS_REQUEST_LOCATION);
+                        mPermissionsForActivity,
+                        ConstantManager.PERMISSION_CODE);
             }
         }
     }
@@ -241,39 +270,55 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String permissions[], @NonNull int[] grantResults) {
-        switch (requestCode) {
-            case ConstantManager.PERMISSIONS_REQUEST_LOCATION: {
-                // If request is cancelled, the result arrays are empty.
-                if (grantResults.length > 0
-                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        if (requestCode == ConstantManager.PERMISSION_CODE && grantResults.length == 2)
 
-
-                    if (ContextCompat.checkSelfPermission(this,
-                            Manifest.permission.ACCESS_FINE_LOCATION)
-                            == PackageManager.PERMISSION_GRANTED) {
-
-                        if (mGoogleApiClient == null) {
-                            buildGoogleApiClient();
-                        }
-                        mMap.setMyLocationEnabled(true);
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (ContextCompat.checkSelfPermission(this,
+                        Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED) {
+                    if (mGoogleApiClient == null) {
+                        buildGoogleApiClient();
                     }
-
-                } else {
-                    // permission denied! Disable the
-                    // functionality that depends on this permission.
-                    Toast.makeText(this, "permission denied", Toast.LENGTH_LONG).show();
+                    mMap.setMyLocationEnabled(true);
                 }
+            } else {
+                Toast.makeText(this, "в разрешении gps отказано", Toast.LENGTH_LONG).show();
             }
+        if (grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+
+        } else {
+            Toast.makeText(this, "в разрешении записи в галерею отказано", Toast.LENGTH_LONG).show();
         }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        Log.d(TAG, "onSaveInstanceState");
+        outState.putInt(ConstantManager.EDIT_MODE_SAVE_KEY, ConstantManager.EDIT_MODE_ROTATE_COLLAGE);
+        if (mKeyPhotoPlace != null) {
+            outState.putStringArrayList(ConstantManager.ID_PHOTO_IN_COLLAGE_KEY, mKeyPhotoPlace);
+        }
+        super.onSaveInstanceState(outState);
+    }
+
+
+    @Override
+    public void onBackPressed() {
+        if(mCurrentEditMode==ConstantManager.EDIT_MODE_SHOW_COLLAGE){
+            mActionButton.setImageResource(R.drawable.ic_add_white_24dp);
+            mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+            mCurrentEditMode=ConstantManager.EDIT_MODE_HIDE_COLLAGE;
+        }else
+        super.onBackPressed();
     }
 
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.add_fab:
-                if (mCurrentEditMode == 0) {
-
-                    Log.d(TAG, "button fab add work");
+                if (mCurrentEditMode == ConstantManager.EDIT_MODE_HIDE_COLLAGE) {
+                    changeEditMode(mCurrentEditMode);
+                    mCurrentEditMode = ConstantManager.EDIT_MODE_SHOW_COLLAGE;
                     Call<LocalModelRes> call = mDataManager.getLocation(
                             convertLocation((float) mLatLng.latitude
                                     , (float) mLatLng.longitude)
@@ -285,19 +330,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         public void onResponse(Call<LocalModelRes> call, Response<LocalModelRes> response) {
                             if (response.code() == 200) {
                                 List<PlacePhotoReference> listReference = mDataManager.getReferences(response.body());
-
-                                for (int i = 0; i < ConstantManager.COUNT_RANDOM_PHOTO_IN_COLLAGE; i++) {
-
-                                    String URL = AppConfig.PHOTO_URL.concat(AppConfig.MAX_WITH_PHOTO_URL_ATR).concat(ConstantManager.MAX_WITH_PHOTO)
-                                            .concat(AppConfig.REFERENCE_PHOTO_URL_ATR).concat(listReference.get(i).getIdPhoto())
-                                            .concat(AppConfig.KEY_URL_ATR).concat(ConstantManager.GOOGLE_PLACE_API_KEY);
-
-                                    Picasso.with(getApplicationContext()).load(URL)
-                                            .fit()
-                                            .centerCrop()
-                                            .into(mCollageView.get(i));
+                                mKeyPhotoPlace = new ArrayList<String>();
+                                for (PlacePhotoReference element : listReference) {
+                                    mKeyPhotoPlace.add(element.getIdPhoto());
                                 }
-
+                                loadPhoto();
                             } else {
                                 Log.d(TAG, "Error response server");
                             }
@@ -309,14 +346,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         }
                     });
 
-                    changeEditMode(mCurrentEditMode);
-                    mCurrentEditMode=1;
 
-
-                }else {
+                } else if (mCurrentEditMode == ConstantManager.EDIT_MODE_SHOW_COLLAGE) {
                     changeEditMode(mCurrentEditMode);
-                    mCurrentEditMode=0;
-//                    TODO: shared photo
+                    mCurrentEditMode = 0;
+                    takeScreenshot();
                 }
         }
 
@@ -329,16 +363,76 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void changeEditMode(int mode) {
-        if (mode == 1) {
-            mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
-            mActionButton.setImageResource(R.drawable.ic_add_white_24dp);
 
-
-        } else {
+        if (mode == ConstantManager.EDIT_MODE_HIDE_COLLAGE) {
             mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
             mActionButton.setImageResource(R.drawable.ic_share_white_24dp);
+
+        } else if (mode == ConstantManager.EDIT_MODE_SHOW_COLLAGE) {
+            mActionButton.setImageResource(R.drawable.ic_add_white_24dp);
+            mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+
+        } else {
+            if (mKeyPhotoPlace != null) {
+                mCurrentEditMode = ConstantManager.EDIT_MODE_ROTATE_COLLAGE;
+                loadPhoto();
+                mActionButton.setImageResource(R.drawable.ic_share_white_24dp);
+                mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+            }
+        }
+    }
+
+    private void loadPhoto() {
+        for (int i = 0; i < ConstantManager.COUNT_RANDOM_PHOTO_IN_COLLAGE; i++) {
+
+            String URL = AppConfig.PHOTO_URL.concat(AppConfig.MAX_WITH_PHOTO_URL_ATR).concat(ConstantManager.MAX_WITH_PHOTO)
+                    .concat(AppConfig.REFERENCE_PHOTO_URL_ATR).concat(mKeyPhotoPlace.get(i))
+                    .concat(AppConfig.KEY_URL_ATR).concat(ConstantManager.GOOGLE_PLACE_API_KEY);
+
+            Picasso.with(getApplicationContext()).load(URL)
+                    .fit()
+                    .centerCrop()
+                    .into(mCollageView.get(i));
 
         }
     }
 
+    private void takeScreenshot() {
+
+        mScreenshotView.setDrawingCacheEnabled(true);
+        mScreenshotView.buildDrawingCache(true);
+        Bitmap bitmap = Bitmap.createBitmap(mScreenshotView.getDrawingCache());
+        mScreenshotView.setDrawingCacheEnabled(false);
+
+
+        //Save bitmap
+        File storageDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+        String fileName = new SimpleDateFormat("yyyyMMddhhmm'_report.jpg'").format(new Date());
+        File myPath = new File(storageDir, fileName);
+        FileOutputStream fOut = null;
+        try {
+            fOut = new FileOutputStream(myPath);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fOut);
+            fOut.flush();
+            fOut.close();
+            MediaStore.Images.Media.insertImage(getContentResolver(), bitmap, "Screen", "screen");
+
+            shareImage(myPath);
+
+        } catch (FileNotFoundException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+    private void shareImage(File path){
+        Intent shareIntent = new Intent();
+        shareIntent.setAction(Intent.ACTION_SEND);
+        shareIntent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(path));
+        shareIntent.setType("image/jpeg");
+        startActivity(Intent.createChooser(shareIntent, getResources().getString(R.string.send_to)));
+
+    }
 }
