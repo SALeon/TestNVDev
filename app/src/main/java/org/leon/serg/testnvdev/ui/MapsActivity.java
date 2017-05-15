@@ -130,12 +130,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                     ) {
-                mMap.setMyLocationEnabled(true);
                 buildGoogleApiClient();
+                mMap.setMyLocationEnabled(true);
             } else {
                 checkPermissions("необходимо разрешение для получения местоположения"
                         , "для продолжения работы приложения необходимо разрешение для определения местоположения "
@@ -168,7 +167,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onPause();
         Log.d(TAG, "onPause");
         if (mGoogleApiClient != null) {
-//            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
             mGoogleApiClient.disconnect();
         }
     }
@@ -179,7 +178,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         Location lastLocation = null;
         Log.d(TAG, "onConnected");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                     ) {
                 lastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
             } else {
