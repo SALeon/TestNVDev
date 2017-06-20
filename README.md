@@ -1,4 +1,4 @@
-# TestNVDev
+# test-task
 Plee use the following api https://developers.google.com/places/web-service/photos
  
 Inside tashe app you allow for the geolocation and show the location of the user on the map. 
